@@ -2,7 +2,7 @@ package main
 
 import (
 	"os"
-	syncclip "sync-clip"
+	syncclip "github.com/sokinpui/sync-clip"
 )
 
 func main() {

@@ -6,7 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"sync-clip"
+	"github.com/sokinpui/sync-clip"
 
 	"github.com/atotto/clipboard"
 )

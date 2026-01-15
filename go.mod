@@ -1,4 +1,4 @@
-module sync-clip
+module github.com/sokinpui/sync-clip
 
 go 1.25.5
 
