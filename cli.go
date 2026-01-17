@@ -1,6 +1,7 @@
 package syncclip
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/spf13/cobra"
 	"io"
@@ -46,7 +47,11 @@ func isInputPiped() bool {
 }
 
 func pushToRemote() error {
-	resp, err := http.Post(serverAddr, "text/plain", os.Stdin)
+	reader := bufio.NewReader(os.Stdin)
+	peek, _ := reader.Peek(512)
+	contentType := http.DetectContentType(peek)
+
+	resp, err := http.Post(serverAddr, contentType, reader)
 	if err != nil {
 		return fmt.Errorf("failed to connect to server: %w", err)
 	}

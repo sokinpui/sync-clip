@@ -1,14 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"flag"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"github.com/sokinpui/sync-clip"
-
-	"github.com/atotto/clipboard"
+	"golang.design/x/clipboard"
 )
 
 func main() {
@@ -18,6 +18,10 @@ func main() {
 	cfg, err := syncclip.LoadConfig(*configPath, "scs.conf")
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	if err := clipboard.Init(); err != nil {
+		log.Fatalf("Failed to initialize clipboard: %v", err)
 	}
 
 	log.Printf("Starting Sync-clip server on %s...", cfg.Port)
@@ -46,7 +50,13 @@ func handleClipboard(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := clipboard.WriteAll(string(content)); err != nil {
+		format := clipboard.FmtText
+		if strings.HasPrefix(r.Header.Get("Content-Type"), "image/") {
+			format = clipboard.FmtImage
+		}
+
+		_ = clipboard.Write(format, content)
+		if err != nil {
 			log.Printf("Failed to write to clipboard: %v", err)
 			http.Error(w, "Failed to update clipboard", http.StatusInternalServerError)
 			return
@@ -57,13 +67,22 @@ func handleClipboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, err := clipboard.ReadAll()
-	if err != nil {
-		log.Printf("Failed to read from clipboard: %v", err)
-		http.Error(w, "Failed to read clipboard", http.StatusInternalServerError)
+	img := clipboard.Read(clipboard.FmtImage)
+	if len(img) > 0 {
+		log.Printf("Clipboard sent: %d bytes (image)", len(img))
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = io.Copy(w, bytes.NewReader(img))
 		return
 	}
 
-	log.Printf("Clipboard sent: %d bytes", len(content))
-	fmt.Fprint(w, content)
+	txt := clipboard.Read(clipboard.FmtText)
+	if len(txt) > 0 {
+		log.Printf("Clipboard sent: %d bytes (text)", len(txt))
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = io.Copy(w, bytes.NewReader(txt))
+		return
+	}
+
+	log.Printf("Clipboard is empty")
+	w.WriteHeader(http.StatusNoContent)
 }
