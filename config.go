@@ -10,8 +10,9 @@ import (
 )
 
 type Config struct {
-	Port string `yaml:"port"`
-	URL  string `yaml:"url"`
+	Port  string   `yaml:"port"`
+	URL   string   `yaml:"url"`
+	Peers []string `yaml:"peers"`
 }
 
 func LoadConfig(explicitPath string, defaultFilename string) (*Config, error) {

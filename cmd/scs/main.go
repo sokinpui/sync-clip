@@ -11,6 +11,8 @@ import (
 	"golang.design/x/clipboard"
 )
 
+var hub *syncclip.Hub
+
 func main() {
 	configPath := flag.String("c", "", "Path to configuration file")
 	flag.Parse()
@@ -24,10 +26,19 @@ func main() {
 		log.Fatalf("Failed to initialize clipboard: %v", err)
 	}
 
+	hub = syncclip.NewHub()
+	go hub.Run()
+
+	for _, peerURL := range cfg.Peers {
+		log.Printf("Connecting to peer: %s", peerURL)
+		go hub.ConnectToPeer(peerURL)
+	}
+
 	log.Printf("Starting Sync-clip server on %s...", cfg.Port)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleClipboard)
+	mux.HandleFunc("/ws", hub.HandleWebSocket)
 
 	server := &http.Server{
 		Addr:    cfg.Port,
@@ -50,17 +61,16 @@ func handleClipboard(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		isImage := false
 		format := clipboard.FmtText
 		if strings.HasPrefix(r.Header.Get("Content-Type"), "image/") {
 			format = clipboard.FmtImage
+			isImage = true
 		}
 
 		_ = clipboard.Write(format, content)
-		if err != nil {
-			log.Printf("Failed to write to clipboard: %v", err)
-			http.Error(w, "Failed to update clipboard", http.StatusInternalServerError)
-			return
-		}
+
+		hub.BroadcastLocal(content, isImage)
 
 		log.Printf("Clipboard updated: %d bytes", len(content))
 		w.WriteHeader(http.StatusOK)
