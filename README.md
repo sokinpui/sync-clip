@@ -3,6 +3,32 @@ a simple remote clipboard for device that don't have monitor.
 `sc`: the client command line tool, use on remote machine
 `scs`: the server run on local machine
 
+# Installation
+
+## macOS
+
+```bash
+brew tap sokinpui/sync-clip
+brew install sync-clip
+brew services start sync-clip
+```
+
+### Configuration Paths
+
+Depending on how you run the server, the configuration file is located at:
+
+- **Homebrew Service**: `$HOMEBREW_PREFIX/etc/sync-clip/scs.conf`
+- **Manual Execution (`scs`)**: `~/.config/sync-clip/scs.conf`
+
+The client (`sc`) configuration is located at:
+`~/.config/sync-clip/sc.conf`
+
+## From Source
+
+```bash
+go install ./cmd/sc ./cmd/scs
+```
+
 # copy to local clipboard from remote device
 
 ```bash
