@@ -26,11 +26,6 @@ func LoadConfig(explicitPath string, defaultFilename string) (*Config, error) {
 		configPath = GetDefaultConfigPath(defaultFilename)
 	}
 
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		_ = initDefaultConfig(configPath, cfg)
-		return cfg, nil
-	}
-
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return cfg, nil
@@ -42,19 +37,6 @@ func LoadConfig(explicitPath string, defaultFilename string) (*Config, error) {
 
 	normalizeConfig(cfg)
 	return cfg, nil
-}
-
-func initDefaultConfig(path string, cfg *Config) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return err
-	}
-
-	data, err := yaml.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(path, data, 0644)
 }
 
 func normalizeConfig(cfg *Config) {
