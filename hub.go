@@ -14,6 +14,7 @@ import (
 )
 
 type Message struct {
+	ID      string `json:"id,omitempty"`
 	Origin  string `json:"origin"`
 	IsImage bool   `json:"is_image"`
 	Content []byte `json:"content"`
@@ -21,6 +22,7 @@ type Message struct {
 
 type Hub struct {
 	id          string
+	peerCount   int
 	lastContent []byte
 	lastWasImg  bool
 	peers       map[*peer]bool
@@ -38,6 +40,7 @@ type broadcastEvent struct {
 
 type peer struct {
 	hub  *Hub
+	id   string
 	conn *websocket.Conn
 	send chan Message
 	done chan struct{}
@@ -116,7 +119,7 @@ func (h *Hub) Run() {
 		case p := <-h.register:
 			h.mu.Lock()
 			h.peers[p] = true
-			log.Printf("Peer connected: %s", p.conn.RemoteAddr())
+			log.Printf("Peer connected: %s", p.id)
 			h.mu.Unlock()
 		case p := <-h.unregister:
 			h.mu.Lock()
@@ -169,7 +172,14 @@ func (h *Hub) ConnectToPeer(url string) {
 }
 
 func (h *Hub) serveConn(conn *websocket.Conn, done chan struct{}) {
-	p := &peer{hub: h, conn: conn, send: make(chan Message, 256), done: done}
+	addr := conn.RemoteAddr().String()
+	p := &peer{
+		hub:  h,
+		id:   addr,
+		conn: conn,
+		send: make(chan Message, 256),
+		done: done,
+	}
 	h.register <- p
 
 	go p.writePump()
@@ -211,7 +221,7 @@ func (p *peer) readPump() {
 			format = clipboard.FmtImage
 		}
 
-		log.Printf("[Peer] Received %s update from %s (%d bytes)", label, p.conn.RemoteAddr(), len(msg.Content))
+		log.Printf("[Peer] Received %s update from %s (%d bytes)", label, p.id, len(msg.Content))
 		clipboard.Write(format, msg.Content)
 		p.hub.broadcast <- broadcastEvent{message: msg, source: p}
 	}

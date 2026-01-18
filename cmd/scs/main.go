@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"io"
+	"net"
 	"log"
 	"net/http"
 	"strings"
@@ -53,7 +54,8 @@ func main() {
 }
 
 func handleClipboard(w http.ResponseWriter, r *http.Request) {
-	log.Printf("[HTTP] %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	log.Printf("[HTTP] %s %s from %s", r.Method, r.URL.Path, host)
 
 	if r.Method == http.MethodPost {
 		content, err := io.ReadAll(r.Body)
