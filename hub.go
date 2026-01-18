@@ -1,11 +1,14 @@
 package syncclip
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
-	"net/http"
 	"log"
+	"net/http"
 	"sync"
 	"time"
+	"fmt"
 
 	"github.com/gorilla/websocket"
 	"golang.design/x/clipboard"
@@ -19,11 +22,14 @@ type Message struct {
 
 type Hub struct {
 	id         string
+	lastContent []byte
+	lastWasImg  bool
 	peers      map[*peer]bool
 	register   chan *peer
 	unregister chan *peer
 	broadcast  chan broadcastEvent
-	mu         sync.Mutex
+	mu         sync.RWMutex
+	contentMu  sync.Mutex
 }
 
 type broadcastEvent struct {
@@ -51,6 +57,57 @@ func NewHub() *Hub {
 		register:   make(chan *peer),
 		unregister: make(chan *peer),
 		broadcast:  make(chan broadcastEvent),
+	}
+}
+
+func (h *Hub) IsNewContent(content []byte, isImage bool) bool {
+	h.contentMu.Lock()
+	defer h.contentMu.Unlock()
+
+	if h.lastWasImg == isImage && bytes.Equal(h.lastContent, content) {
+		return false
+	}
+
+	h.lastContent = content
+	h.lastWasImg = isImage
+	return true
+}
+
+func (h *Hub) StartWatcher(ctx context.Context) {
+	go h.watchFormat(ctx, clipboard.FmtText, false)
+	go h.watchFormat(ctx, clipboard.FmtImage, true)
+}
+
+func (h *Hub) watchFormat(ctx context.Context, format clipboard.Format, isImage bool) {
+	ch := clipboard.Watch(ctx, format)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case content := <-ch:
+			if !h.IsNewContent(content, isImage) {
+				continue
+			}
+
+			label := "text"
+			if isImage {
+				label = "image"
+			}
+
+			fmt.Printf("Local clipboard change detected (%s)\n", label)
+			h.BroadcastLocal(content, isImage)
+		}
+	}
+}
+
+func (h *Hub) BroadcastLocal(content []byte, isImage bool) {
+	h.broadcast <- broadcastEvent{
+		message: Message{
+			Origin:  h.id,
+			IsImage: isImage,
+			Content: content,
+		},
+		source: nil,
 	}
 }
 
@@ -85,17 +142,6 @@ func (h *Hub) Run() {
 			}
 			h.mu.Unlock()
 		}
-	}
-}
-
-func (h *Hub) BroadcastLocal(content []byte, isImage bool) {
-	h.broadcast <- broadcastEvent{
-		message: Message{
-			Origin:  h.id,
-			IsImage: isImage,
-			Content: content,
-		},
-		source: nil,
 	}
 }
 
@@ -152,6 +198,10 @@ func (p *peer) readPump() {
 		}
 
 		if msg.Origin == p.hub.id {
+			continue
+		}
+
+		if !p.hub.IsNewContent(msg.Content, msg.IsImage) {
 			continue
 		}
 

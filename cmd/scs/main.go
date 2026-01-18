@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"io"
 	"log"
@@ -28,6 +29,7 @@ func main() {
 
 	hub = syncclip.NewHub()
 	go hub.Run()
+	hub.StartWatcher(context.Background())
 
 	for _, peerURL := range cfg.Peers {
 		log.Printf("Connecting to peer: %s", peerURL)
@@ -68,11 +70,11 @@ func handleClipboard(w http.ResponseWriter, r *http.Request) {
 			isImage = true
 		}
 
-		_ = clipboard.Write(format, content)
-
-		hub.BroadcastLocal(content, isImage)
-
-		log.Printf("Clipboard updated: %d bytes", len(content))
+		if hub.IsNewContent(content, isImage) {
+			_ = clipboard.Write(format, content)
+			hub.BroadcastLocal(content, isImage)
+			log.Printf("Clipboard updated: %d bytes", len(content))
+		}
 		w.WriteHeader(http.StatusOK)
 		return
 	}

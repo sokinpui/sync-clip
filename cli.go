@@ -48,7 +48,7 @@ func isInputPiped() bool {
 
 func pushToRemote() error {
 	reader := bufio.NewReader(os.Stdin)
-	peek, _ := reader.Peek(512)
+	peek, _ := reader.Peek(1024)
 	contentType := http.DetectContentType(peek)
 
 	resp, err := http.Post(serverAddr, contentType, reader)
