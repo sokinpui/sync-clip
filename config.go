@@ -60,6 +60,7 @@ func initDefaultConfig(path string, cfg *Config) error {
 func normalizeConfig(cfg *Config) {
 	normalizePort(cfg)
 	normalizeURL(cfg)
+	normalizePeers(cfg)
 }
 
 func normalizePort(cfg *Config) {
@@ -78,6 +79,21 @@ func normalizeURL(cfg *Config) {
 		cfg.URL = "localhost:" + cfg.URL
 	}
 	cfg.URL = "http://" + cfg.URL
+}
+
+func normalizePeers(cfg *Config) {
+	for i, addr := range cfg.Peers {
+		if strings.Contains(addr, "://") {
+			continue
+		}
+
+		normalized := addr
+		if !strings.HasSuffix(normalized, "/ws") {
+			normalized = strings.TrimSuffix(normalized, "/") + "/ws"
+		}
+
+		cfg.Peers[i] = "ws://" + normalized
+	}
 }
 
 func GetDefaultConfigPath(filename string) string {
