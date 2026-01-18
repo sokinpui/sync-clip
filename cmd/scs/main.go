@@ -53,7 +53,7 @@ func main() {
 }
 
 func handleClipboard(w http.ResponseWriter, r *http.Request) {
-	log.Printf("[%s] %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+	log.Printf("[HTTP] %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
 
 	if r.Method == http.MethodPost {
 		content, err := io.ReadAll(r.Body)
@@ -73,7 +73,7 @@ func handleClipboard(w http.ResponseWriter, r *http.Request) {
 		if hub.IsNewContent(content, isImage) {
 			_ = clipboard.Write(format, content)
 			hub.BroadcastLocal(content, isImage)
-			log.Printf("Clipboard updated: %d bytes", len(content))
+			log.Printf("[HTTP] Clipboard updated via POST: %d bytes", len(content))
 		}
 		w.WriteHeader(http.StatusOK)
 		return
@@ -81,7 +81,7 @@ func handleClipboard(w http.ResponseWriter, r *http.Request) {
 
 	img := clipboard.Read(clipboard.FmtImage)
 	if len(img) > 0 {
-		log.Printf("Clipboard sent: %d bytes (image)", len(img))
+		log.Printf("[HTTP] Sending image: %d bytes", len(img))
 		w.Header().Set("Content-Type", "image/png")
 		_, _ = io.Copy(w, bytes.NewReader(img))
 		return
@@ -89,12 +89,12 @@ func handleClipboard(w http.ResponseWriter, r *http.Request) {
 
 	txt := clipboard.Read(clipboard.FmtText)
 	if len(txt) > 0 {
-		log.Printf("Clipboard sent: %d bytes (text)", len(txt))
+		log.Printf("[HTTP] Sending text: %d bytes", len(txt))
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = io.Copy(w, bytes.NewReader(txt))
 		return
 	}
 
-	log.Printf("Clipboard is empty")
+	log.Printf("[HTTP] Clipboard is empty")
 	w.WriteHeader(http.StatusNoContent)
 }

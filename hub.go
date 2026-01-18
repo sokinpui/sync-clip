@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"sync"
 	"time"
-	"fmt"
 
 	"github.com/gorilla/websocket"
 	"golang.design/x/clipboard"
@@ -21,15 +20,15 @@ type Message struct {
 }
 
 type Hub struct {
-	id         string
+	id          string
 	lastContent []byte
 	lastWasImg  bool
-	peers      map[*peer]bool
-	register   chan *peer
-	unregister chan *peer
-	broadcast  chan broadcastEvent
-	mu         sync.RWMutex
-	contentMu  sync.Mutex
+	peers       map[*peer]bool
+	register    chan *peer
+	unregister  chan *peer
+	broadcast   chan broadcastEvent
+	mu          sync.RWMutex
+	contentMu   sync.Mutex
 }
 
 type broadcastEvent struct {
@@ -94,7 +93,7 @@ func (h *Hub) watchFormat(ctx context.Context, format clipboard.Format, isImage 
 				label = "image"
 			}
 
-			fmt.Printf("Local clipboard change detected (%s)\n", label)
+			log.Printf("[Local] Change detected: %s (%d bytes)", label, len(content))
 			h.BroadcastLocal(content, isImage)
 		}
 	}
@@ -205,11 +204,14 @@ func (p *peer) readPump() {
 			continue
 		}
 
+		label := "text"
 		format := clipboard.FmtText
 		if msg.IsImage {
+			label = "image"
 			format = clipboard.FmtImage
 		}
 
+		log.Printf("[Peer] Received %s update from %s (%d bytes)", label, p.conn.RemoteAddr(), len(msg.Content))
 		clipboard.Write(format, msg.Content)
 		p.hub.broadcast <- broadcastEvent{message: msg, source: p}
 	}
